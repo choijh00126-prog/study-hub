@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070B14">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="일본어 여행회화">
+<meta name="description" content="술자리·식당·쇼핑·온천에서 바로 쓰는 일본어 여행회화. 한글 발음과 남성 음성, 플래시카드·듣기 퀴즈.">
+<title>일본어 여행회화</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23070B14'/%3E%3Ctext x='50' y='68' font-size='56' text-anchor='middle'%3E%F0%9F%97%BE%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="top" id="top">
+    <div class="brand-row">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">🗾</span>
+        <div>
+          <h1 id="appTitle">일본어 여행회화</h1>
+          <p id="appSub">술자리에서 말 트고, 점원 말도 알아듣기</p>
+        </div>
+      </div>
+      <button id="speedBtn" class="speed-btn" type="button" aria-label="재생 속도 바꾸기">1.0x</button>
+    </div>
+
+    <div class="prog">
+      <div class="prog-bar"><i id="progFill"></i></div>
+      <span id="progText">0 / 0 외움</span>
+    </div>
+
+    <nav class="modes" id="modes" role="tablist" aria-label="학습 모드">
+      <button type="button" data-mode="list" class="on" aria-selected="true">📖 목록</button>
+      <button type="button" data-mode="flash" aria-selected="false">🃏 카드</button>
+      <button type="button" data-mode="quiz" aria-selected="false">🎧 듣고 맞추기</button>
+    </nav>
+
+    <div class="cats" id="cats" aria-label="카테고리"></div>
+
+    <div class="search-wrap" id="searchWrap">
+      <input id="q" type="search" inputmode="search" autocomplete="off" placeholder="🔎 뜻·일본어·발음 검색">
+    </div>
+  </header>
+
+  <main>
+    <section id="listView" aria-label="문장 목록"></section>
+    <section id="flashView" aria-label="플래시카드" hidden></section>
+    <section id="quizView" aria-label="듣고 맞추기" hidden></section>
+    <noscript><p class="empty">자바스크립트를 켜야 문장이 보여요.</p></noscript>
+  </main>
+
+  <footer class="foot">
+    <p id="footStat"></p>
+    <p class="foot-note">외운 문장·즐겨찾기는 이 기기 브라우저에만 저장됩니다.</p>
+    <button id="resetBtn" type="button" class="ghost">진도 초기화</button>
+  </footer>
+
+</div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
