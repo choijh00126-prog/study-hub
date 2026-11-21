@@ -1,0 +1,60 @@
+# 일본어 여행회화
+
+술자리·식당·쇼핑·온천에서 바로 쓰는 일본어 여행 표현 80문장. 폰 한 손으로 쓰도록 만든 모바일 퍼스트 페이지입니다.
+특정 도시·시설에 묶이지 않는 범용 표현이라 도쿄·오사카·후쿠오카 어디서든 그대로 씁니다.
+
+- 주소(배포 후): <https://choijh00126-prog.github.io/study-hub/>
+- 음성: 전부 `ja-JP-KeitaNeural`(남성) MP3 92개. 0.8배속은 `playbackRate`로 재생.
+
+## 탭 구성 (7개, 80문장)
+
+| 탭 | 문장 수 | 내용 |
+| --- | --- | --- |
+| 🍻 이자카야·술자리 | 16 | 건배, 옆자리 말 걸기, 추천 메뉴, 연락처 교환, 더치페이 |
+| 🍜 식당·주문 | 11 | 예약, 인원, 웨이팅, 추가 주문, 얼음 빼기, 알레르기, 포장 |
+| 🛍️ 쇼핑·면세 | 9 | 사이즈·색, 면세·여권, 터치 결제, 봉투, 반품 |
+| ♨️ 온천·이동·숙소 | 11 | 체크인·짐 보관, 전철·출구·IC카드, 온천 예절·문신·수건 |
+| 🆘 긴급·기본 | 9 | 화장실, 와이파이, 길 잃음, 약국, 분실 |
+| 💬 2030 구어·리액션 | 12 | マジで？·ヤバい·めっちゃうまい·とりあえず生で·それな 등 |
+| 👂 점원·현지인 말 | 12 | 何名さまですか·ラストオーダーです 등 + 받아치는 답 |
+
+각 카드는 한국어 뜻 / 일본어(한자) / 가나 읽기 / 한글 발음 / 재생 / 🐢천천히 / 외웠어요 / ☆즐겨찾기 / 팁으로 구성됩니다.
+`👂 점원·현지인 말` 카드는 상대가 하는 말과, 그때 돌려줄 답(일본어·발음·음성)을 함께 보여줍니다.
+
+## 학습 모드
+
+- **📖 목록** — 카테고리 칩·검색·즐겨찾기 필터, 카테고리별 진도
+- **🃏 카드** — 뜻을 보고 일본어 떠올리기, 탭하면 뒤집히며 자동 재생, 외웠어요/몰랐어요, 외운 카드 빼기
+- **🎧 듣고 맞추기** — 음성만 듣고 뜻 4지선다, 정답이면 자동 다음 문제
+
+외운 표시·즐겨찾기·재생 속도는 브라우저 `localStorage`에만 저장됩니다(서버 없음).
+
+## 파일
+
+```
+index.html        페이지
+styles.css        다크/네온 스타일 (모바일 퍼스트)
+app.js            화면·오디오·학습 모드 로직
+data/phrases.json 문장 원본 (여기만 고치면 됨)
+data.js           위 JSON을 페이지용으로 변환한 결과 (build.py가 생성)
+audio/*.mp3       문장 80 + 듣기 답변 12
+icon.svg / icon-192.png / icon-512.png / manifest.json   홈 화면 추가용
+build.py          phrases.json -> data.js + 검증
+gen_audio.py      edge-tts 로 MP3 생성 (없는 파일만)
+verify.py         로컬 HTTP 로 모든 경로 200 확인
+verify_browser.py 헤드리스 크로미움으로 동작·콘솔 오류 확인
+deploy.sh         빌드 후 GitHub main 브랜치로 push
+```
+
+## 문장 추가·수정
+
+1. `data/phrases.json` 의 `phrases` 에 항목 추가 (`id`, `cat`, `level`, `ko`, `ja`, `kana`, `pron`, `tip`).
+   듣기 카드는 `reply_ko`·`reply_ja`·`reply_kana`·`reply_pron` 도 넣으면 답변 블록과 답변 음성이 붙습니다.
+2. `python3 gen_audio.py` — 새 id 의 MP3만 생성 (`--force` 로 전체 재생성)
+3. `python3 build.py && python3 verify.py` — data.js 생성과 경로 확인
+4. `./deploy.sh` — 빌드 후 배포
+
+## 배포
+
+`./deploy.sh` 가 `work/study-hub/gh-pages` 체크아웃에 배포 파일만 복사해 `choijh00126-prog/study-hub` 의 `main` 으로 push합니다.
+GitHub Pages 는 리포 Settings → Pages 에서 Source **Deploy from a branch / main / /(root)** 로 한 번 켜두면 이후 push 만으로 반영됩니다.
