@@ -8,14 +8,23 @@
     return;
   }
 
-  var CATS = D.categories;
-  var PH = D.phrases;
+  var CATS_ALL = D.categories;
+  var ITEMS = D.phrases;
+  var SETS = D.sets || {};
   var CAT = {};
-  CATS.forEach(function (c) { CAT[c.id] = c; });
+  CATS_ALL.forEach(function (c) { CAT[c.id] = c; });
   var BY_ID = {};
-  PH.forEach(function (p) { BY_ID[p.id] = p; });
-  var TOTAL = PH.length;
-  var REPLY_COUNT = PH.filter(function (p) { return p.reply_ja; }).length;
+  ITEMS.forEach(function (p) { BY_ID[p.id] = p; });
+  var REPLY_COUNT = ITEMS.filter(function (p) { return p.reply_ja; }).length;
+  function setOf(p) { return p.set || 'talk'; }
+  function totals() {
+    var t = { talk: 0, word: 0 };
+    ITEMS.forEach(function (p) { t[setOf(p)] = (t[setOf(p)] || 0) + 1; });
+    return t;
+  }
+  var TOTALS = totals();
+  var scope = D.sets && D.sets.word ? lsGet('jph.scope.v1', 'talk') : 'talk';
+  if (scope !== 'word' && scope !== 'talk') scope = 'talk';
 
   /* ---------------- helpers ---------------- */
   function $(s, r) { return (r || document).querySelector(s); }
@@ -34,7 +43,7 @@
   var ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.7c0-.9 1-1.4 1.7-.9l8.6 6.3c.6.4.6 1.4 0 1.8l-8.6 6.3c-.7.5-1.7 0-1.7-.9V5.7z"/></svg>';
 
   /* ---------------- state ---------------- */
-  var K = { mem: 'jph.mem.v1', star: 'jph.star.v1', speed: 'jph.speed.v1' };
+  var K = { mem: 'jph.mem.v1', star: 'jph.star.v1', speed: 'jph.speed.v1', scope: 'jph.scope.v1' };
   function lsGet(k, fb) { try { var v = localStorage.getItem(k); return v === null ? fb : JSON.parse(v); } catch (e) { return fb; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 
@@ -49,15 +58,31 @@
   var cat = 'all';
   var query = '';
   var mode = 'list';
+  var wordOpen = {};   // 기초 단어장 아코디언 펼침 상태
+  var wordAll = false;  // 모두 펼치기
 
   var listView = $('#listView'), flashView = $('#flashView'), quizView = $('#quizView');
   var catsEl = $('#cats'), searchWrap = $('#searchWrap'), qInput = $('#q');
+  var scopesEl = $('#scopes');
   var progFill = $('#progFill'), progText = $('#progText'), speedBtn = $('#speedBtn');
   var footStat = $('#footStat');
 
   function saveMem() { lsSet(K.mem, Object.keys(mem)); }
   function saveStars() { lsSet(K.star, Object.keys(stars)); }
-  function memCount() { return Object.keys(mem).length; }
+  function memCount() {
+    var n = 0;
+    var ids = Object.keys(mem);
+    for (var i = 0; i < ids.length; i++) {
+      var it = BY_ID[ids[i]];
+      if (it && setOf(it) === scope) n++;
+    }
+    return n;
+  }
+  function totalCount() { return TOTALS[scope] || 0; }
+  function scopeCats() {
+    return CATS_ALL.filter(function (c) { return (c.set || 'talk') === scope; });
+  }
+  function isWord(w) { return setOf(w) === 'word'; }
 
   /* ---------------- audio ---------------- */
   var audio = new Audio();
@@ -96,7 +121,7 @@
   }
   function playPhrase(p, rate, btn) {
     if (!p) return;
-    playAudio(p.id, p.ja, rate, btn);
+    playAudio(p.id, p.say || p.ja, rate, btn);
   }
   function playReply(p, rate, btn) {
     if (!p || !p.reply_ja) return;
@@ -106,7 +131,8 @@
   /* ---------------- filter ---------------- */
   function filtered() {
     var qq = query.trim().toLowerCase();
-    return PH.filter(function (p) {
+    return ITEMS.filter(function (p) {
+      if (setOf(p) !== scope) return false;
       if (cat === 'star') { if (!stars[p.id]) return false; }
       else if (cat !== 'all' && p.cat !== cat) return false;
       if (!qq) return true;
@@ -117,13 +143,34 @@
 
   /* ---------------- chrome ---------------- */
   function updateProgress() {
-    var n = memCount();
-    progFill.style.width = (TOTAL ? (n / TOTAL) * 100 : 0) + '%';
-    progText.textContent = n + ' / ' + TOTAL + ' 외움';
+    var n = memCount(), total = totalCount();
+    progFill.style.width = (total ? (n / total) * 100 : 0) + '%';
+    progText.textContent = n + ' / ' + total + (scope === 'word' ? ' 외움' : ' 외움');
   }
 
   function updateFoot() {
-    footStat.textContent = '문장 ' + TOTAL + '개 · 음성 ' + (TOTAL + REPLY_COUNT) + '개 · 남성 음성(Keita)';
+    if (scope === 'word') {
+      footStat.textContent = '단어 ' + TOTALS.word + '개 · 카테고리 ' + scopeCats().length + '개 · 음성 ' +
+        (TOTALS.word + REPLY_COUNT) + '개 · 남성 음성(Keita)';
+    } else {
+      footStat.textContent = '문장 ' + TOTALS.talk + '개 · 음성 ' + (TOTALS.talk + REPLY_COUNT) + '개 · 남성 음성(Keita)';
+    }
+  }
+
+  function paintScope() {
+    if (scopesEl) {
+      $$('button', scopesEl).forEach(function (b) {
+        var on = b.getAttribute('data-scope') === scope;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-selected', String(on));
+      });
+    }
+    var nTalk = $('#scopeTalkN'), nWord = $('#scopeWordN');
+    if (nTalk) nTalk.textContent = TOTALS.talk;
+    if (nWord) nWord.textContent = TOTALS.word;
+    var sub = SETS[scope] && SETS[scope].subtitle;
+    if (sub) $('#appSub').textContent = sub;
+    document.body.classList.toggle('word-scope', scope === 'word');
   }
 
   function paintSpeed() {
@@ -140,10 +187,13 @@
   }
 
   function renderCats() {
-    var parts = [chipHTML('all', '📚', '전체', '#2EE6A8', TOTAL)];
-    parts.push(chipHTML('star', '★', '즐겨찾기', '#FFB020', Object.keys(stars).length));
-    CATS.forEach(function (c) {
-      var n = PH.filter(function (p) { return p.cat === c.id; }).length;
+    var parts = [chipHTML('all', '📚', '전체', '#2EE6A8', totalCount())];
+    var starN = Object.keys(stars).filter(function (id) {
+      return BY_ID[id] && setOf(BY_ID[id]) === scope;
+    }).length;
+    parts.push(chipHTML('star', '★', '즐겨찾기', '#FFB020', starN));
+    scopeCats().forEach(function (c) {
+      var n = ITEMS.filter(function (p) { return p.cat === c.id; }).length;
       parts.push(chipHTML(c.id, c.icon, c.name, c.color, n));
     });
     catsEl.innerHTML = parts.join('');
@@ -198,7 +248,7 @@
     var items = filtered();
     var out = [];
     if (cat === 'all' || cat === 'star') {
-      CATS.forEach(function (c) {
+      scopeCats().forEach(function (c) {
         var arr = items.filter(function (p) { return p.cat === c.id; });
         if (arr.length) out.push({ cat: c, items: arr });
       });
@@ -208,14 +258,85 @@
     return out;
   }
 
+  /* ---------------- 기초 단어장 ---------------- */
+  function wordRowHTML(w) {
+    var isMem = !!mem[w.id], isStar = !!stars[w.id];
+    return '<div class="wrow' + (isMem ? ' is-mem' : '') + '" data-id="' + w.id + '" data-act="play"' +
+      ' role="button" tabindex="0" aria-label="' + esc(w.ko) + ' 발음 듣기">' +
+      '<span class="wplay" aria-hidden="true">' + ICON_PLAY + '</span>' +
+      '<div class="wbody">' +
+        '<div class="wja-row"><span class="wja" lang="ja">' + esc(w.ja) + '</span>' +
+        (w.kana && w.kana !== w.ja ? '<span class="wkana" lang="ja">' + esc(w.kana) + '</span>' : '') + '</div>' +
+        '<div class="wmeta"><span class="wko" lang="ko">' + esc(w.ko) + '</span>' +
+        '<span class="wpron" lang="ko">' + esc(w.pron) + '</span></div>' +
+        (w.tip ? '<p class="wtip" lang="ko">' + esc(w.tip) + '</p>' : '') +
+      '</div>' +
+      '<span class="wtools">' +
+        '<button type="button" class="wbtn wstar' + (isStar ? ' on' : '') + '" data-act="star" aria-pressed="' + isStar + '" aria-label="즐겨찾기">' + (isStar ? '★' : '☆') + '</button>' +
+        '<button type="button" class="wbtn wmem' + (isMem ? ' on' : '') + '" data-act="mem" aria-pressed="' + isMem + '" aria-label="외웠어요">' + (isMem ? '✓' : '○') + '</button>' +
+      '</span>' +
+    '</div>';
+  }
+
+  function isOpen(cid) {
+    if (query.trim()) return true;
+    if (wordAll) return true;
+    if (cat === 'star') return true;
+    if (cat !== 'all') return cid === cat;
+    return !!wordOpen[cid];
+  }
+
+  function wordTipHTML() {
+    return '<aside class="warn-card">' +
+      '<p class="warn-head">⚠️ 동음이어 주의</p>' +
+      '<ul>' +
+        '<li><b>はな</b> 하나 — 코(<span lang="ja">鼻</span>) / 꽃(<span lang="ja">花</span>)</li>' +
+        '<li><b>は</b> 하 — 이빨(<span lang="ja">歯</span>) / 잎(<span lang="ja">葉</span>)</li>' +
+        '<li><b>あめ</b> 아메 — 비(<span lang="ja">雨</span>) / 사탕(<span lang="ja">飴</span>)</li>' +
+        '<li><b>おじさん</b> 오지상 삼촌 vs <b>おじいさん</b> 오지이상 할아버지 — 「い」를 길게</li>' +
+        '<li><b>おばさん</b> 오바상 이모 vs <b>おばあさん</b> 오바아상 할머니 — 「あ」를 길게</li>' +
+      '</ul></aside>';
+  }
+
+  function renderWordList() {
+    var items = filtered();
+    if (!items.length) {
+      listView.innerHTML = emptyHTML(cat === 'star' && !query
+        ? '즐겨찾기한 단어가 아직 없어요.<br>단어 오른쪽 ☆ 를 눌러 담아두면 여기 모여요.'
+        : '이 조건에 맞는 단어가 없어요.<br>다른 카테고리나 검색어로 찾아보세요.');
+      return;
+    }
+    var html = '';
+    if (cat === 'all' && !query.trim()) html += wordTipHTML();
+    html += '<div class="w-toolbar"><span>카테고리 ' + groups().length + '개 · 단어 ' + items.length + '개</span>' +
+      '<button type="button" class="w-all" data-act="w-all">' + (wordAll ? '모두 접기' : '모두 펼치기') + '</button></div>';
+    html += groups().map(function (g) {
+      var all = ITEMS.filter(function (p) { return p.cat === g.cat.id; });
+      var n = all.filter(function (p) { return mem[p.id]; }).length;
+      var open = isOpen(g.cat.id);
+      return '<section class="group wgroup' + (open ? ' open' : '') + '" style="--c:' + g.cat.color +
+        ';--c-10:' + tint(g.cat.color, .1) + ';--c-30:' + tint(g.cat.color, .3) + ';--c-45:' + tint(g.cat.color, .45) + '">' +
+        '<button type="button" class="wgroup-head" data-act="wgroup" data-gcat="' + g.cat.id + '" aria-expanded="' + open + '">' +
+          '<span class="g-icon" aria-hidden="true">' + g.cat.icon + '</span>' +
+          '<h2>' + esc(g.cat.name) + '</h2>' +
+          '<span class="g-count" data-gcount="' + g.cat.id + '">' + n + '/' + all.length + '</span>' +
+          '<span class="chev" aria-hidden="true">⌄</span>' +
+        '</button>' +
+        (open ? '<div class="wlist">' + g.items.map(wordRowHTML).join('') + '</div>' : '') +
+      '</section>';
+    }).join('');
+    listView.innerHTML = html;
+  }
+
   function renderList() {
+    if (scope === 'word') { renderWordList(); updateGroupCounts(); return; }
     if (!filtered().length) {
       listView.innerHTML = emptyHTML(cat === 'star' && !query ? '즐겨찾기한 문장이 아직 없어요.<br>카드 오른쪽 ☆ 를 눌러 담아두면 여기 모여요.' : '');
       updateGroupCounts();
       return;
     }
     var html = groups().map(function (g) {
-      var all = PH.filter(function (p) { return p.cat === g.cat.id; });
+      var all = ITEMS.filter(function (p) { return p.cat === g.cat.id; });
       var n = all.filter(function (p) { return mem[p.id]; }).length;
       var desc = (g.cat.id === 'listen')
         ? '점원·현지인이 먼저 건네는 말이에요. 아래 “이렇게 답해요”까지 같이 익히면 대화가 이어져요.'
@@ -236,15 +357,26 @@
   function updateGroupCounts() {
     $$('[data-gcount]', listView).forEach(function (el) {
       var cid = el.getAttribute('data-gcount');
-      var all = PH.filter(function (p) { return p.cat === cid; });
+      var all = ITEMS.filter(function (p) { return p.cat === cid; });
       var n = all.filter(function (p) { return mem[p.id]; }).length;
-      el.textContent = n + '/' + all.length + ' 외움';
+      el.textContent = scope === 'word' ? (n + '/' + all.length) : (n + '/' + all.length + ' 외움');
     });
   }
 
   function paintCard(id) {
-    var card = listView.querySelector('.card[data-id="' + id + '"]');
+    var card = listView.querySelector('.card[data-id="' + id + '"], .wrow[data-id="' + id + '"]');
     if (!card) return;
+    if (card.classList.contains('wrow')) {
+      var won = !!mem[id];
+      card.classList.toggle('is-mem', won);
+      var wb = card.querySelector('.wmem');
+      if (wb) {
+        wb.classList.toggle('on', won);
+        wb.textContent = won ? '✓' : '○';
+        wb.setAttribute('aria-pressed', String(won));
+      }
+      return;
+    }
     var on = !!mem[id];
     card.classList.toggle('is-mem', on);
     var btn = card.querySelector('.mem-btn');
@@ -268,9 +400,9 @@
     if (!id) return;
     if (stars[id]) delete stars[id]; else stars[id] = 1;
     saveStars();
-    var card = listView.querySelector('.card[data-id="' + id + '"]');
+    var card = listView.querySelector('.card[data-id="' + id + '"], .wrow[data-id="' + id + '"]');
     if (card) {
-      var b = card.querySelector('.star');
+      var b = card.querySelector('.star, .wstar');
       if (b) {
         var on = !!stars[id];
         b.classList.toggle('on', on);
@@ -296,7 +428,7 @@
   function flashBackHTML(p) {
     return '<div class="fc-back">' +
       '<p class="ja" lang="ja">' + esc(p.ja) + '</p>' +
-      '<p class="kana" lang="ja">' + esc(p.kana) + '</p>' +
+      (p.kana && p.kana !== p.ja ? '<p class="kana" lang="ja">' + esc(p.kana) + '</p>' : '') +
       '<div class="pron-row"><span class="pron" lang="ko">' + esc(p.pron) + '</span></div>' +
       (p.reply_ja ? '<div class="reply"><div class="reply-top"><span class="reply-label">↩ 이렇게 답해요</span>' +
         '<span class="r-pron" lang="ko">' + esc(p.reply_pron || '') + '</span></div>' +
@@ -371,7 +503,7 @@
     quiz.cur = quiz.deck[quiz.i];
     quiz.answered = false;
     quiz.picked = -1;
-    var others = PH.filter(function (p) { return p.id !== quiz.cur.id && p.ko !== quiz.cur.ko; });
+    var others = ITEMS.filter(function (p) { return setOf(p) === scope && p.id !== quiz.cur.id && p.ko !== quiz.cur.ko; });
     var pool = others.filter(function (p) { return p.cat === quiz.cur.cat; });
     if (pool.length < 3) pool = others;
     quiz.opts = shuffle([quiz.cur].concat(shuffle(pool).slice(0, 3)));
@@ -473,9 +605,10 @@
     var modeBtn = t.closest('#modes button');
     if (modeBtn) { setMode(modeBtn.getAttribute('data-mode')); return; }
 
-    var chipEl = t.closest('[data-cat]');
+    var chipEl = t.closest('.chip[data-cat]');
     if (chipEl) {
       cat = chipEl.getAttribute('data-cat');
+      if (scope === 'word') { wordAll = false; wordOpen = {}; }
       renderCats();
       if (mode === 'list') renderList();
       else if (mode === 'flash') openFlash();
@@ -486,7 +619,26 @@
     var actEl = t.closest('[data-act]');
     if (!actEl) return;
     var act = actEl.getAttribute('data-act');
-    var card = t.closest('.card');
+
+    if (act === 'wgroup') {
+      var gcat = actEl.getAttribute('data-gcat');
+      if (wordAll) { wordAll = false; }
+      wordOpen[gcat] = !isOpen(gcat);
+      if (cat === gcat) cat = 'all';
+      renderCats();
+      renderList();
+      return;
+    }
+    if (act === 'w-all') {
+      wordAll = !wordAll;
+      wordOpen = {};
+      if (wordAll) cat = 'all';
+      renderCats();
+      renderList();
+      return;
+    }
+
+    var card = t.closest('.card, .wrow');
     var id = card ? card.getAttribute('data-id') : null;
     var p = id ? BY_ID[id] : null;
 
@@ -578,6 +730,28 @@
     }
   });
 
+  if (scopesEl) {
+    scopesEl.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-scope]');
+      if (!b) return;
+      var next = b.getAttribute('data-scope');
+      if (next === scope) return;
+      scope = next;
+      lsSet(K.scope, scope);
+      cat = 'all';
+      query = '';
+      qInput.value = '';
+      wordAll = false;
+      wordOpen = {};
+      paintScope();
+      renderCats();
+      setMode(mode);
+      updateProgress();
+      updateFoot();
+      renderCats();
+    });
+  }
+
   speedBtn.addEventListener('click', function () {
     speed = speed === 1 ? 0.8 : 1;
     lsSet(K.speed, speed);
@@ -610,6 +784,7 @@
   if (D.subtitle) $('#appSub').textContent = D.subtitle;
   if (D.title) $('#appTitle').textContent = D.title;
   paintSpeed();
+  paintScope();
   renderCats();
   renderList();
   updateProgress();
